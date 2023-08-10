@@ -1,19 +1,71 @@
-version: '3.9'
-
+version: "3.8"
+volumes:
+  db-store:
 services:
-  php:
-    build: .
-    volumes:
-     - ./src:/var/www/html
+  # dbコンテナ
+  db:
+# ダウンロードするイメージ
+    image: mysql:8.0
+# 接続ポート
     ports:
-     - '8000:8000'
-  mysql:
-    platform: linux/x86_64 #M1Macはこれを追加しないと動かない
-    image: mysql:5.7
-    ports:
-      - '3306:3306'
+      - 33060:3306
+# 　A:B Aをコンテナ上のBにマウント
     volumes:
-      - ./db:/var/lib/mysql
+      - db-store:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    # 環境変数設定
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: laravel
+      - MYSQL_DATABASE=sample_db
+      - MYSQL_USER=sample
+      - MYSQL_PASSWORD=?????
+      - MYSQL_ROOT_PASSWORD=?????
+      - TZ=Asia/Tokyo
+
+# appコンテナ
+  app:
+    # Dockerfileのあるディレクトリのパスを指定
+    build: ./docker/php
+    volumes:
+      - ./backend:/work
+# appコンテナをdbコンテナに依存させる
+    depends_on:
+      - db
+  
+  # webコンテナ
+  web:
+    image: nginx:1.18-alpine
+    ports:
+      - 8000:80
+    volumes:
+      - ./backend:/work
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+# コマンドを実行する作業ディレクトリ指定
+    working_dir: /work
+    depends_on:
+      - app
+
+  # phpMyAdminコンテナ
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5
+    # コンテナ名
+    container_name: phpmyadmin
+    # dbコンテナを繋げる
+    links:
+      - db
+    ports:
+      - 8080:80
+    volumes:
+      - ./docker/phpmyadmin/sessions:/sessions
+  
+  #AWS CLIコンテナ
+  aws-cli-container:
+    build: ./docker/php
+    container_name: awscli-container
+    volumes:
+      - .:/workdir
+ # .envが配置されてるパス
+    env_file:
+      - ./backend/.env
+    environment:
+      AWS_DEFAULT_REGION: ap-northeast-1
+      AWS_DEFAULT_OUTPUT: json
