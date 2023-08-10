@@ -26,7 +26,7 @@ services:
     # Dockerfileのあるディレクトリのパスを指定
     build: ./docker/php
     volumes:
-      - ./backend:/work
+      - ./src:var/www/html
 # appコンテナをdbコンテナに依存させる
     depends_on:
       - db
